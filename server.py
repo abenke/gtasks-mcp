@@ -20,6 +20,16 @@ def list_tasks(tasklist_id: str = "@default", show_completed: bool = False, show
     return task_manager.list_tasks(tasklist_id, show_completed, show_hidden)
 
 @mcp.tool()
+def get_task(task_id: str, tasklist_id: str = "@default"):
+    """Get a single task's full details including title, notes, status, due date, and links."""
+    return task_manager.get_task(task_id, tasklist_id)
+
+@mcp.tool()
+def get_subtasks(task_id: str, tasklist_id: str = "@default"):
+    """Get all subtasks for a given parent task."""
+    return task_manager.get_subtasks(task_id, tasklist_id)
+
+@mcp.tool()
 def create_task(title: str, notes: str = None, due: str = None, tasklist_id: str = "@default"):
     """Create a new task.
     

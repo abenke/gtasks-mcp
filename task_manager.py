@@ -3,9 +3,18 @@ from auth import get_service
 def list_task_lists():
     """List all task lists."""
     service = get_service()
-    results = service.tasklists().list().execute()
-    items = results.get("items", [])
-    return items
+    all_items = []
+    page_token = None
+    while True:
+        results = service.tasklists().list(
+            maxResults=100,
+            pageToken=page_token
+        ).execute()
+        all_items.extend(results.get("items", []))
+        page_token = results.get("nextPageToken")
+        if not page_token:
+            break
+    return all_items
 
 def create_task_list(title: str):
     """Create a new task list."""
@@ -15,15 +24,48 @@ def create_task_list(title: str):
     return result
 
 def list_tasks(tasklist_id: str = "@default", show_completed: bool = False, show_hidden: bool = False):
-    """List tasks in a specific task list."""
+    """List tasks in a specific task list, with subtasks nested under their parents."""
     service = get_service()
-    results = service.tasks().list(
-        tasklist=tasklist_id,
-        showCompleted=show_completed,
-        showHidden=show_hidden
-    ).execute()
-    items = results.get("items", [])
-    return items
+    all_items = []
+    page_token = None
+    while True:
+        results = service.tasks().list(
+            tasklist=tasklist_id,
+            showCompleted=show_completed,
+            showHidden=show_hidden,
+            maxResults=100,
+            pageToken=page_token
+        ).execute()
+        all_items.extend(results.get("items", []))
+        page_token = results.get("nextPageToken")
+        if not page_token:
+            break
+
+    # Build a lookup of tasks by ID
+    tasks_by_id = {t["id"]: t for t in all_items}
+
+    # Nest subtasks under their parent's "subtasks" key
+    top_level = []
+    for task in all_items:
+        parent_id = task.get("parent")
+        if parent_id and parent_id in tasks_by_id:
+            parent = tasks_by_id[parent_id]
+            parent.setdefault("subtasks", []).append(task)
+        else:
+            top_level.append(task)
+
+    return top_level
+
+def get_task(task_id: str, tasklist_id: str = "@default"):
+    """Get a single task's full details."""
+    service = get_service()
+    task = service.tasks().get(tasklist=tasklist_id, task=task_id).execute()
+    return task
+
+def get_subtasks(task_id: str, tasklist_id: str = "@default"):
+    """Get all subtasks for a given parent task."""
+    all_tasks = list_tasks(tasklist_id)
+    return [t for t in all_tasks if t.get("parent") == task_id]
 
 def create_task(title: str, notes: str = None, due: str = None, tasklist_id: str = "@default"):
     """Create a new task.
